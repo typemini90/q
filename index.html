@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Web Push</title>
+  <style>
+    body { font-family: sans-serif; padding: 40px }
+    button { padding: 12px 20px; font-size: 16px; margin-right: 10px }
+  </style>
+</head>
+<body>
+
+<button id="sub">Subscribe</button>
+<button id="send">Send Notification</button>
+<button id="notify">Show Desktop Notification</button>
+
+<script>
+const PUBLIC_VAPID_KEY = 'BJtddrXmMFwz93Ewpu42eO6r4P7zx-hfkqRFCsbiORA7z05ENuRTTEZ2brfCb9nKtz6uPitDVp8ZPL8EQqsV2T4';
+let savedSub = null;
+
+function urlBase64ToUint8Array(base64) {
+  const padding = '='.repeat((4 - base64.length % 4) % 4);
+  const base64Safe = (base64 + padding).replace(/-/g,'+').replace(/_/g,'/');
+  return Uint8Array.from(atob(base64Safe), c => c.charCodeAt(0));
+}
+
+document.getElementById('sub').onclick = async () => {
+  if (!('serviceWorker' in navigator)) return alert('Not supported');
+
+  const permission = await Notification.requestPermission();
+  if (permission !== 'granted') return;
+
+  const reg = await navigator.serviceWorker.register('/sw.js');
+
+  savedSub = await reg.pushManager.subscribe({
+    userVisibleOnly: true,
+    applicationServerKey: urlBase64ToUint8Array(PUBLIC_VAPID_KEY),
+  });
+
+  alert('Subscribed');
+};
+
+document.getElementById('send').onclick = async () => {
+  if (!savedSub) return alert('Please subscribe first');
+
+  try {
+    const response = await fetch('/.netlify/functions/send-notification', {
+      method: 'POST',
+      body: JSON.stringify(savedSub),
+    });
+
+    const result = await response.text();
+    alert(result);
+  } catch (error) {
+    alert('Error: ' + error.message);
+  }
+};
+
+document.getElementById('notify').onclick = async () => {
+  const permission = await Notification.requestPermission();
+  if (permission !== 'granted') return;
+
+  new Notification('Hello', {
+    body: 'This is a desktop notification',
+  });
+};
+</script>
+
+</body>
+</html>
